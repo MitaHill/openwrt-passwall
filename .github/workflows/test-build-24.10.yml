@@ -1,0 +1,42 @@
+# 临时测试工作流：仅用于 URLTest 前置代理修复的本地测试，不进入上游 PR
+name: "Test build (24.10.5)"
+on:
+  push:
+    branches:
+      - 'test/urltest-*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build passwall [23.05-24.10]
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@main
+
+      - name: Generate .config for Language Packs
+        run: |
+          echo "CONFIG_ALL_NONSHARED=n" > .config
+          echo "CONFIG_ALL_KMODS=n" >> .config
+          echo "CONFIG_ALL=n" >> .config
+          echo "CONFIG_AUTOREMOVE=n" >> .config
+          echo "CONFIG_LUCI_LANG_zh_Hans=y" >> .config
+          echo "CONFIG_PACKAGE_luci-app-passwall=m" >> .config
+
+      - name: Compile With OpenWrt SDK
+        uses: openwrt/gh-action-sdk@main
+        env:
+          ARCH: x86_64-24.10.5
+          PACKAGES: luci-app-passwall
+
+      - name: Collect packages
+        run: |
+          mkdir -p upload
+          find bin/packages/ -type f \( -name "luci-app-passwall*" -o -name "luci-i18n-passwall*" \) -exec cp {} upload/ \;
+          ls -l upload
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: passwall-24.10-${{ github.sha }}
+          path: upload/*
